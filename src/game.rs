@@ -1,6 +1,6 @@
 use rand::{prelude::SliceRandom, thread_rng, Rng};
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Direction {
     UP,
     DOWN,
@@ -8,6 +8,7 @@ pub enum Direction {
     RIGHT,
 }
 
+#[derive(Debug)]
 pub struct Game {
     scoreTarget: u32,
     moves: u32,
@@ -54,7 +55,7 @@ impl Game {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Board {
     height: usize,
     width: usize,
@@ -245,7 +246,7 @@ impl ModRow for Box<[&mut Cell]> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Cell {
     score: Option<u32>,
 }

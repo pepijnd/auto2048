@@ -1,95 +1,80 @@
 use std::collections::HashMap;
 
-use crate::game::{Board, Direction};
-use std::cmp;
+use std::cell::RefCell;
+use std::rc::Rc;
 
+use crate::game::{Board, Direction};
+
+#[derive(Debug)]
 pub struct AINode {
     board: Board,
     layer: u32,
-    score: Option<i32>,
-    options: Option<HashMap<Direction, Vec<AINode>>>,
+    options: Option<Vec<Rc<RefCell<AINode>>>>,
+    player: Player,
+}
+
+#[derive(Debug)]
+enum Player {
+    Max(Direction),
+    Min,
 }
 
 impl AINode {
-    fn new(board: Board, layer: u32) -> AINode {
+    fn new(board: Board, layer: u32, player: Player) -> AINode {
         AINode {
             board,
             layer,
             options: None,
-            score: None,
+            player,
         }
     }
 
-    fn set_score(&mut self) {
-        self.score = Some(self.board.get_ai_score())
-    }
-
-    fn add_option(&mut self, dir: Direction, node: AINode) {
+    fn add_option(&mut self, node: AINode) {
         if self.options.is_none() {
-            self.options = Some(HashMap::new());
-        }
-        if !self.options.as_ref().unwrap().contains_key(&dir) {
-            self.options.as_mut().unwrap().insert(dir, Vec::new());
+            self.options = Some(Vec::new());
         }
         self.options
             .as_mut()
             .unwrap()
-            .get_mut(&dir)
-            .unwrap()
-            .push(node);
+            .push(Rc::new(RefCell::new(node)));
     }
 
     fn add_layer(&mut self) {
-        let dirs = vec![
-            Direction::DOWN,
-            Direction::LEFT,
-            Direction::RIGHT,
-            Direction::UP,
-        ];
-        for dir in dirs.iter() {
-            let max = match dir {
-                Direction::LEFT | Direction::RIGHT => self.board.height(),
-                Direction::DOWN | Direction::UP => self.board.width(),
-            };
-            for i in 0..max {
-                let mut board = self.board.clone();
-                board.step_rows(*dir);
-                let ok = board.step_add_index(*dir, i);
-                if ok {
-                    let new_node = AINode::new(board, self.layer + 1);
-                    self.add_option(*dir, new_node);
-                }
-            }
-        }
-    }
-
-    fn get_highest(&self) -> &AINode {
-        if self.options.is_none() {
-            &self
-        } else {
-            let mut max_score = None;
-            let mut max_option = None;
-
-            for dir in self.options.as_ref().unwrap().values() {
-                for option in dir.iter() {
-                    let score = option.board.get_ai_score();
-                    if max_score.is_none() || score > max_score.unwrap() {
-                        max_score = Some(score);
-                        max_option = Some(option);
+        match self.player {
+            Player::Max(dir) => {
+                let max = match dir {
+                    Direction::LEFT | Direction::RIGHT => self.board.height(),
+                    Direction::DOWN | Direction::UP => self.board.width(),
+                };
+                for i in 0..max {
+                    let mut board = self.board.clone();
+                    let ok = board.step_add_index(dir, i);
+                    if ok {
+                        let new_node = AINode::new(board, self.layer + 1, Player::Min);
+                        self.add_option(new_node);
                     }
                 }
             }
-
-            &max_option.unwrap()
+            Player::Min => {
+                let dirs = vec![
+                    Direction::DOWN,
+                    Direction::LEFT,
+                    Direction::RIGHT,
+                    Direction::UP,
+                ];
+                for dir in dirs {
+                    let mut board = self.board.clone();
+                    board.step_rows(dir);
+                    self.add_option(AINode::new(board, self.layer + 1, Player::Max(dir)))
+                }
+            }
         }
     }
 
     fn build_sub_tree(&mut self, max_depth: u32) {
         if self.options.is_some() {
-            for dir in self.options.as_mut().unwrap().values_mut() {
-                for option in dir.iter_mut() {
-                    option.build_tree(max_depth);
-                }
+            for option in self.options.as_mut().unwrap() {
+                option.borrow_mut().build_tree(max_depth);
             }
         }
     }
@@ -100,81 +85,24 @@ impl AINode {
             self.build_sub_tree(max_depth);
         }
     }
-
-    fn minimax(&self, depth: u32, alpha: Option<i32>, beta: Option<i32>) -> MinMaxResult {
-        let mut alpha = alpha;
-        let mut beta = beta;
-        if self.options.is_none() {
-            MinMaxResult::score(self.board.get_ai_score(), self)
-        } else {
-            let dirs = vec![
-                Direction::DOWN,
-                Direction::LEFT,
-                Direction::RIGHT,
-                Direction::UP,
-            ];
-            let mut values: HashMap<Direction, MinMaxResult> = HashMap::new();
-            for dir in dirs.iter() {
-                if self.options.as_ref().unwrap().get(dir).is_some() {
-                    for option in self.options.as_ref().unwrap().get(dir).unwrap().iter() {
-                        let mut result = option.minimax(depth - 1, alpha, beta);
-                        if values.get(dir).is_none()
-                            || result.score < values.get(dir).unwrap().score
-                        {
-                            result.direction = Some(*dir);
-                            values.insert(*dir, result);
-                        }
-                        if alpha.is_none() || values.get(dir).unwrap().score < alpha.unwrap() {
-                            alpha = Some(values.get(dir).unwrap().score);
-                        }
-                        if beta.is_some() && alpha.is_some() && alpha.unwrap() > beta.unwrap() {
-                            break;
-                        }
-                    }
-                }
-            }
-            let mut max: Option<MinMaxResult> = None;
-            for (_dir, result) in values.drain() {
-                if max.is_none() || result.score > max.as_ref().unwrap().score {
-                    max = Some(result);
-                }
-                if alpha.is_none() || max.as_ref().unwrap().score > alpha.unwrap() {
-                    alpha = Some(max.as_ref().unwrap().score);
-                }
-                if beta.is_some() && alpha.is_some() && alpha.unwrap() > beta.unwrap() {
-                    break;
-                }
-            }
-            max.unwrap()
-        }
-    }
 }
 
-pub struct MinMaxResult<'a> {
+#[derive(Debug)]
+pub struct MinMaxResult {
     score: i32,
-    node: &'a AINode,
-    direction: Option<Direction>,
+    node: Rc<RefCell<AINode>>,
 }
 
-impl<'a> MinMaxResult<'a> {
-    fn new(score: i32, node: &'a AINode, direction: Direction) -> MinMaxResult<'a> {
-        MinMaxResult {
-            score,
-            node,
-            direction: Some(direction),
-        }
-    }
-
-    fn score(score: i32, node: &'a AINode) -> MinMaxResult<'a> {
-        MinMaxResult {
-            score,
-            node,
-            direction: None,
-        }
+impl MinMaxResult {
+    fn new(score: i32, node: Rc<RefCell<AINode>>) -> MinMaxResult {
+        MinMaxResult { score, node }
     }
 
     pub fn get_direction(&self) -> Direction {
-        self.direction.unwrap_or_else(|| Direction::DOWN)
+        match self.node.borrow().player {
+            Player::Max(dir) => dir,
+            Player::Min => Direction::UP,
+        }
     }
 
     pub fn get_score(&self) -> i32 {
@@ -194,24 +122,26 @@ impl AIScore for Board {
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let cell = self.get_cell(x, y);
-                
+
                 if cell.is_set() {
                     cells += 1;
                     let mut mult = 1.0;
-                    if (x==0 && y==0) || (x==0 && y==self.height()-1) || (x==self.width()-1 && y==0) || (x==self.width()-1 && y==self.height()-1) {
+                    if (x == 0 && y == 0)
+                        || (x == 0 && y == self.height() - 1)
+                        || (x == self.width() - 1 && y == 0)
+                        || (x == self.width() - 1 && y == self.height() - 1)
+                    {
                         mult = 1.25;
-                    } else if x==0 || x==self.width()-1 || y==0 || y==self.height()-1 {
+                    } else if x == 0 || x == self.width() - 1 || y == 0 || y == self.height() - 1 {
                         mult = 1.15;
                     } else {
                         mult = 0.95;
                     }
-                    if mult*cell.get_score().unwrap() as f32 > max {
-                        max = mult*cell.get_score().unwrap() as f32;
+                    if mult * cell.get_score().unwrap() as f32 > max {
+                        max = mult * cell.get_score().unwrap() as f32;
                     }
-                    score += mult*2i32.pow(cell.get_score().unwrap()) as f32;
+                    score += mult * 2i32.pow(cell.get_score().unwrap()) as f32;
                 }
-                
-
             }
         }
 
@@ -220,32 +150,82 @@ impl AIScore for Board {
     }
 }
 
+#[derive(Debug)]
 pub struct AI {
     board: Board,
-    root: Option<AINode>,
-    depth: Option<u32>,
+    depth: u32,
+    root: Option<Rc<RefCell<AINode>>>,
 }
 
-impl<'a> AI {
-    pub fn new(board: &Board) -> AI {
+impl AI {
+    pub fn new(board: &Board, depth: u32) -> AI {
         AI {
             board: board.clone(),
+            depth,
             root: None,
-            depth: None,
         }
     }
 
-    pub fn build_tree(&mut self, depth: u32) {
-        let mut root = AINode::new(self.board.clone(), 0);
-        root.build_tree(depth);
-        self.root = Some(root);
-        self.depth = Some(depth);
+    pub fn build_tree(&mut self) {
+        let mut root = AINode::new(self.board.clone(), 0, Player::Min);
+        root.build_tree(self.depth);
+        self.root = Some(Rc::new(RefCell::new(root)));
     }
 
-    pub fn minimax(&'a self) -> MinMaxResult<'a> {
-        self.root
-            .as_ref()
-            .unwrap()
-            .minimax(self.depth.unwrap(), None, None)
+    pub fn minimax(&self) -> MinMaxResult {
+        Self::minimaxfn(
+            Rc::clone(self.root.as_ref().unwrap()),
+            self.depth,
+            None,
+            None,
+        )
+    }
+
+    pub fn minimaxfn(
+        node: Rc<RefCell<AINode>>,
+        depth: u32,
+        alpha: Option<i32>,
+        beta: Option<i32>,
+    ) -> MinMaxResult {
+        let mut alpha = alpha;
+        let mut beta = beta;
+        if node.borrow().options.is_none() {
+            MinMaxResult::new(node.borrow().board.get_ai_score(), Rc::clone(&node))
+        } else {
+            match node.borrow().player {
+                Player::Min => {
+                    let mut max: Option<MinMaxResult> = None;
+                    for child in node.borrow().options.as_ref().unwrap().iter() {
+                        let mut value = Self::minimaxfn(Rc::clone(child), depth + 1, alpha, beta);
+                        if max.is_none() || value.score > max.as_ref().unwrap().score {
+                            max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
+                        }
+                        if alpha.is_none() || value.score > alpha.unwrap() {
+                            alpha = Some(value.score);
+                        }
+                        if alpha.is_some() && beta.is_some() && alpha.unwrap() > beta.unwrap() {
+                            break;
+                        }
+                    }
+                    max.unwrap()
+                }
+                Player::Max(_) => {
+                    let mut max: Option<MinMaxResult> = None;
+                    for child in node.borrow().options.as_ref().unwrap().iter() {
+                        let mut value = Self::minimaxfn(Rc::clone(child), depth + 1, alpha, beta);
+                        if max.is_none() || value.score < max.as_ref().unwrap().score {
+                            max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
+                        }
+                        if beta.is_none() || value.score < beta.unwrap() {
+                            beta = Some(value.score);
+                        }
+                        if alpha.is_some() && beta.is_some() && alpha.unwrap() > beta.unwrap() {
+                            break;
+                        }
+                    }
+                    max.unwrap()
+                }
+            }
+        }
     }
 }

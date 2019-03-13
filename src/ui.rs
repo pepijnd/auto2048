@@ -46,6 +46,10 @@ impl App {
 
         let mut auto_run = false;
         let mut frame = 0;
+        let mut avg = false;
+
+        let mut builds = Vec::new();
+        let mut starts = Vec::new();
 
         'running: loop {
             frame += 1;
@@ -78,21 +82,32 @@ impl App {
                         ..
                     } => {
                         auto_run = !auto_run;
+                        if auto_run == false {
+                            avg = true;
+                        }
                     }
                     _ => {}
                 }
             }
             std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
+
             use std::time::Instant;
             if auto_run && frame != 0 {
-                let mut ai = AI::new(&game.get_board());
+                let mut ai = AI::new(&game.get_board(), 8);
+                let build = Instant::now();
+                ai.build_tree();
                 let start = Instant::now();
-                ai.build_tree(3);
                 let minimax = ai.minimax();
-                let end = start.elapsed();
+
+                let build = build.elapsed();
+                let start = start.elapsed();
+
+                builds.push(build);
+                starts.push(start);
+
                 println!(
-                    "{}\t{}\t{}\t{:?}",
+                    "{}\t{}\t{}\t{:?}\t{:?}",
                     match minimax.get_direction() {
                         Direction::UP => "Up",
                         Direction::DOWN => "Down",
@@ -101,9 +116,27 @@ impl App {
                     },
                     minimax.get_score(),
                     game.get_board().get_ai_score(),
-                    end
+                    build, start
                 );
                 game.step(minimax.get_direction());
+            }
+
+            if avg {
+                let mut build_time = Duration::new(0, 0);
+                let mut start_time = Duration::new(0, 0);
+                for build in builds.iter() {
+                    build_time += *build;
+                }
+                for start in starts.iter() {
+                    start_time += *start;
+                }
+
+                println!("avg\tbuild:{:?}\tstart:{:?}", build_time / builds.len() as u32, start_time / starts.len() as u32);
+
+                builds.clear();
+                starts.clear();
+
+                avg = false;
             }
 
             canvas.set_draw_color(Color::RGB(240, 240, 240));
