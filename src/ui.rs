@@ -48,7 +48,6 @@ impl App {
         let mut frame = 0;
         let mut avg = false;
 
-        let mut builds = Vec::new();
         let mut starts = Vec::new();
 
         'running: loop {
@@ -64,19 +63,19 @@ impl App {
                     Event::KeyDown {
                         keycode: Some(Keycode::Left),
                         ..
-                    } => game.step(Direction::LEFT),
+                    } => {game.step(Direction::LEFT);},
                     Event::KeyDown {
                         keycode: Some(Keycode::Up),
                         ..
-                    } => game.step(Direction::UP),
+                    } => {game.step(Direction::UP);},
                     Event::KeyDown {
                         keycode: Some(Keycode::Down),
                         ..
-                    } => game.step(Direction::DOWN),
+                    } => {game.step(Direction::DOWN);},
                     Event::KeyDown {
                         keycode: Some(Keycode::Right),
                         ..
-                    } => game.step(Direction::RIGHT),
+                    } => {game.step(Direction::RIGHT);},
                     Event::KeyDown {
                         keycode: Some(Keycode::Space),
                         ..
@@ -86,6 +85,10 @@ impl App {
                             avg = true;
                         }
                     }
+                    Event::KeyDown {
+                        keycode: Some(Keycode::R),
+                        ..
+                    } => game.reset(),
                     _ => {}
                 }
             }
@@ -94,20 +97,17 @@ impl App {
 
             use std::time::Instant;
             if auto_run && frame != 0 {
-                let mut ai = AI::new(&game.get_board(), 8);
-                let build = Instant::now();
+                let mut ai = AI::new(&game.get_board(), 9);
                 ai.build_tree();
                 let start = Instant::now();
                 let minimax = ai.minimax();
 
-                let build = build.elapsed();
                 let start = start.elapsed();
 
-                builds.push(build);
                 starts.push(start);
 
                 println!(
-                    "{}\t{}\t{}\t{:?}\t{:?}",
+                    "{}\t{}\t{}\t{:?}",
                     match minimax.get_direction() {
                         Direction::UP => "Up",
                         Direction::DOWN => "Down",
@@ -116,24 +116,22 @@ impl App {
                     },
                     minimax.get_score(),
                     game.get_board().get_ai_score(),
-                    build, start
+                    start
                 );
-                game.step(minimax.get_direction());
+
+                if game.step(minimax.get_direction()) == false {
+                    auto_run = false;
+                }
             }
 
             if avg {
-                let mut build_time = Duration::new(0, 0);
                 let mut start_time = Duration::new(0, 0);
-                for build in builds.iter() {
-                    build_time += *build;
-                }
                 for start in starts.iter() {
                     start_time += *start;
                 }
 
-                println!("avg\tbuild:{:?}\tstart:{:?}", build_time / builds.len() as u32, start_time / starts.len() as u32);
+                println!("avg\tstart:{:?}", start_time / starts.len() as u32);
 
-                builds.clear();
                 starts.clear();
 
                 avg = false;

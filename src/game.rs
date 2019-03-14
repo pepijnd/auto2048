@@ -32,8 +32,8 @@ impl Game {
         &mut self.board
     }
 
-    pub fn step(&mut self, dir: Direction) {
-        self.board.step(dir);
+    pub fn step(&mut self, dir: Direction) -> bool {
+        self.board.step(dir)
     }
 
     pub fn print_board(&self) {
@@ -52,6 +52,10 @@ impl Game {
         }
 
         score - cells + 1
+    }
+
+    pub fn reset(&mut self) {
+        self.board = Board::new();
     }
 }
 
@@ -124,35 +128,35 @@ impl Board {
         col.into_boxed_slice()
     }
 
-    pub fn step(&mut self, dir: Direction) {
+    pub fn step(&mut self, dir: Direction) -> bool {
         self.step_rows(dir);
-        self.step_add(dir);
+        self.step_add(dir)
     }
 
-    pub fn step_rows(&mut self, dir: Direction) {
+    pub fn step_rows(&mut self, dir: Direction) -> bool {
         match dir {
             Direction::UP | Direction::DOWN => {
-                self.step_vertical(dir);
+                self.step_vertical(dir)
             }
             Direction::LEFT | Direction::RIGHT => {
-                self.step_horizontal(dir);
+                self.step_horizontal(dir)
             }
         }
     }
 
-    pub fn step_add(&mut self, dir: Direction) {
+    pub fn step_add(&mut self, dir: Direction) -> bool {
         match dir {
             Direction::UP => {
-                self.get_mut_row(self.height - 1).add_random_zero();
+                self.get_mut_row(self.height - 1).add_random_zero()
             }
             Direction::DOWN => {
-                self.get_mut_row(0).add_random_zero();
+                self.get_mut_row(0).add_random_zero()
             }
             Direction::LEFT => {
-                self.get_mut_col(self.width - 1).add_random_zero();
+                self.get_mut_col(self.width - 1).add_random_zero()
             }
             Direction::RIGHT => {
-                self.get_mut_col(0).add_random_zero();
+                self.get_mut_col(0).add_random_zero()
             }
         }
     }
@@ -172,24 +176,32 @@ impl Board {
         }
     }
 
-    fn step_vertical(&mut self, dir: Direction) {
+    fn step_vertical(&mut self, dir: Direction) -> bool {
+        let mut ok = false;
         for i in 0..self.width {
             let mut col = self.get_mut_col(i);
             if let Direction::DOWN = dir {
                 col.reverse();
             }
-            col.combine_row();
+            if col.combine_row() {
+                ok = true;
+            }
         }
+        ok
     }
 
-    fn step_horizontal(&mut self, dir: Direction) {
+    fn step_horizontal(&mut self, dir: Direction) -> bool {
+        let mut ok = false;
         for i in 0..self.height {
             let mut row = self.get_mut_row(i);
             if let Direction::RIGHT = dir {
                 row.reverse();
             }
-            row.combine_row();
+            if row.combine_row() {
+                ok = true;
+            }
         }
+        ok
     }
 
     pub fn board_data(&self) -> &Vec<Cell> {
@@ -226,12 +238,14 @@ impl ModRow for Box<[&mut Cell]> {
     }
 
     fn combine_row(&mut self) -> bool {
+        let mut ok = false;
         for index in 0..self.len() {
             for i in index + 1..self.len() {
                 if self[index].is_set() {
                     if self[index].get_score() == self[i].get_score() {
                         self[index].incr_score();
                         self[i].set_none();
+                        ok = true;
                         break;
                     } else if self[i].is_set() {
                         break;
@@ -239,10 +253,11 @@ impl ModRow for Box<[&mut Cell]> {
                 } else if self[i].is_set() {
                     self[index].set_score(self[i].get_score().unwrap());
                     self[i].set_none();
+                    ok = true;
                 }
             }
         }
-        false
+        ok
     }
 }
 

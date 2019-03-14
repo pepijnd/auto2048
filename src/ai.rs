@@ -50,8 +50,7 @@ impl AINode {
                     let mut board = self.board.clone();
                     let ok = board.step_add_index(dir, i);
                     if ok {
-                        let new_node = AINode::new(board, self.layer + 1, Player::Min);
-                        self.add_option(new_node);
+                        self.add_option(AINode::new(board, self.layer + 1, Player::Min));
                     }
                 }
             }
@@ -64,8 +63,9 @@ impl AINode {
                 ];
                 for dir in dirs {
                     let mut board = self.board.clone();
-                    board.step_rows(dir);
-                    self.add_option(AINode::new(board, self.layer + 1, Player::Max(dir)))
+                    if board.step_rows(dir) {
+                        self.add_option(AINode::new(board, self.layer + 1, Player::Max(dir)))
+                    }
                 }
             }
         }
@@ -133,7 +133,7 @@ impl AIScore for Board {
                     {
                         mult = 1.25;
                     } else if x == 0 || x == self.width() - 1 || y == 0 || y == self.height() - 1 {
-                        mult = 1.15;
+                        mult = 1.10;
                     } else {
                         mult = 0.95;
                     }
@@ -168,13 +168,14 @@ impl AI {
 
     pub fn build_tree(&mut self) {
         let mut root = AINode::new(self.board.clone(), 0, Player::Min);
-        root.build_tree(self.depth);
+        root.build_tree(1);
         self.root = Some(Rc::new(RefCell::new(root)));
     }
 
     pub fn minimax(&self) -> MinMaxResult {
         Self::minimaxfn(
             Rc::clone(self.root.as_ref().unwrap()),
+            0,
             self.depth,
             None,
             None,
@@ -183,12 +184,16 @@ impl AI {
 
     pub fn minimaxfn(
         node: Rc<RefCell<AINode>>,
+        layer: u32,
         depth: u32,
         alpha: Option<i32>,
         beta: Option<i32>,
     ) -> MinMaxResult {
         let mut alpha = alpha;
         let mut beta = beta;
+        if node.borrow().layer < depth && node.borrow().options.is_none() {
+            node.borrow_mut().add_layer();
+        }
         if node.borrow().options.is_none() {
             MinMaxResult::new(node.borrow().board.get_ai_score(), Rc::clone(&node))
         } else {
@@ -196,7 +201,7 @@ impl AI {
                 Player::Min => {
                     let mut max: Option<MinMaxResult> = None;
                     for child in node.borrow().options.as_ref().unwrap().iter() {
-                        let mut value = Self::minimaxfn(Rc::clone(child), depth + 1, alpha, beta);
+                        let value = Self::minimaxfn(Rc::clone(child), layer + 1, depth, alpha, beta);
                         if max.is_none() || value.score > max.as_ref().unwrap().score {
                             max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
                         }
@@ -212,7 +217,7 @@ impl AI {
                 Player::Max(_) => {
                     let mut max: Option<MinMaxResult> = None;
                     for child in node.borrow().options.as_ref().unwrap().iter() {
-                        let mut value = Self::minimaxfn(Rc::clone(child), depth + 1, alpha, beta);
+                        let value = Self::minimaxfn(Rc::clone(child), layer + 1, depth, alpha, beta);
                         if max.is_none() || value.score < max.as_ref().unwrap().score {
                             max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
                         }
