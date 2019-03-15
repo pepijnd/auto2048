@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::game::{Board, Direction};
 
-#[derive(Debug)]
 pub struct AINode {
     board: Board,
     layer: u32,
@@ -13,7 +10,6 @@ pub struct AINode {
     player: Player,
 }
 
-#[derive(Debug)]
 enum Player {
     Max(Direction),
     Min,
@@ -87,14 +83,13 @@ impl AINode {
     }
 }
 
-#[derive(Debug)]
 pub struct MinMaxResult {
-    score: i32,
+    score: f64,
     node: Rc<RefCell<AINode>>,
 }
 
 impl MinMaxResult {
-    fn new(score: i32, node: Rc<RefCell<AINode>>) -> MinMaxResult {
+    fn new(score: f64, node: Rc<RefCell<AINode>>) -> MinMaxResult {
         MinMaxResult { score, node }
     }
 
@@ -105,52 +100,47 @@ impl MinMaxResult {
         }
     }
 
-    pub fn get_score(&self) -> i32 {
+    pub fn get_score(&self) -> f64 {
         self.score
     }
 }
 
 pub trait AIScore {
-    fn get_ai_score(&self) -> i32;
+    fn get_ai_score(&self) -> f64;
 }
 
 impl AIScore for Board {
-    fn get_ai_score(&self) -> i32 {
+    fn get_ai_score(&self) -> f64 {
         let mut max: f32 = 0.0;
         let mut cells: u32 = 0;
         let mut score: f32 = 0.0;
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let cell = self.get_cell(x, y);
-
                 if cell.is_set() {
+                    let cell = cell.get_score().unwrap() as f32;
                     cells += 1;
-                    let mut mult = 1.0;
+                    if cell > max {
+                        max = cell;
+                    }
                     if (x == 0 && y == 0)
                         || (x == 0 && y == self.height() - 1)
                         || (x == self.width() - 1 && y == 0)
                         || (x == self.width() - 1 && y == self.height() - 1)
                     {
-                        mult = 1.25;
+                        score += 2i32.pow((1.25 * cell) as u32) as f32;
                     } else if x == 0 || x == self.width() - 1 || y == 0 || y == self.height() - 1 {
-                        mult = 1.10;
-                    } else {
-                        mult = 0.95;
+                        score += 2i32.pow((1.10 * cell) as u32) as f32;
                     }
-                    if mult * cell.get_score().unwrap() as f32 > max {
-                        max = mult * cell.get_score().unwrap() as f32;
-                    }
-                    score += mult * 2i32.pow(cell.get_score().unwrap()) as f32;
                 }
             }
         }
-
-        let score = score as i32 - cells as i32;
-        score
+        score += max;
+        score -= cells.pow(2) as f32;
+        score as f64
     }
 }
 
-#[derive(Debug)]
 pub struct AI {
     board: Board,
     depth: u32,
@@ -172,22 +162,26 @@ impl AI {
         self.root = Some(Rc::new(RefCell::new(root)));
     }
 
-    pub fn minimax(&self) -> MinMaxResult {
-        Self::minimaxfn(
+    pub fn minimax(&self, heuristic: Option<Box<Fn(&Board) -> f64>>) -> MinMaxResult {
+        let heuristic = Rc::new(RefCell::new(heuristic.unwrap()));
+        self.minimaxfn(
             Rc::clone(self.root.as_ref().unwrap()),
             0,
             self.depth,
             None,
             None,
+            Some(heuristic.clone()),
         )
     }
 
     pub fn minimaxfn(
+        &self,
         node: Rc<RefCell<AINode>>,
         layer: u32,
         depth: u32,
-        alpha: Option<i32>,
-        beta: Option<i32>,
+        alpha: Option<f64>,
+        beta: Option<f64>,
+        heuristic: Option<Rc<RefCell<Box<Fn(&Board) -> f64>>>>,
     ) -> MinMaxResult {
         let mut alpha = alpha;
         let mut beta = beta;
@@ -195,13 +189,25 @@ impl AI {
             node.borrow_mut().add_layer();
         }
         if node.borrow().options.is_none() {
-            MinMaxResult::new(node.borrow().board.get_ai_score(), Rc::clone(&node))
+            if heuristic.is_some() {
+                let score = (heuristic.unwrap().borrow())(&node.borrow().board);
+                MinMaxResult::new(score, Rc::clone(&node))
+            } else {
+                MinMaxResult::new(node.borrow().board.get_ai_score(), Rc::clone(&node))
+            }
         } else {
             match node.borrow().player {
                 Player::Min => {
                     let mut max: Option<MinMaxResult> = None;
                     for child in node.borrow().options.as_ref().unwrap().iter() {
-                        let value = Self::minimaxfn(Rc::clone(child), layer + 1, depth, alpha, beta);
+                        let value = self.minimaxfn(
+                            Rc::clone(child),
+                            layer + 1,
+                            depth,
+                            alpha,
+                            beta,
+                            heuristic.clone(),
+                        );
                         if max.is_none() || value.score > max.as_ref().unwrap().score {
                             max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
                         }
@@ -217,7 +223,14 @@ impl AI {
                 Player::Max(_) => {
                     let mut max: Option<MinMaxResult> = None;
                     for child in node.borrow().options.as_ref().unwrap().iter() {
-                        let value = Self::minimaxfn(Rc::clone(child), layer + 1, depth, alpha, beta);
+                        let value = self.minimaxfn(
+                            Rc::clone(child),
+                            layer + 1,
+                            depth,
+                            alpha,
+                            beta,
+                            heuristic.clone(),
+                        );
                         if max.is_none() || value.score < max.as_ref().unwrap().score {
                             max = Some(MinMaxResult::new(value.score, Rc::clone(child)));
                         }

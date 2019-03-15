@@ -9,7 +9,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceRootFolderName}",
-            "args": [],
+            "args": ["train"],
             "cwd": "${workspaceRoot}",
             "env": {
                 "RUST_BACKTRACE": "1"

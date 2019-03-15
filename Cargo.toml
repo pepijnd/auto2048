@@ -6,11 +6,17 @@ edition = "2018"
 
 [dependencies]
 rand = "0.6.5"
+open = "1.2.2"
+rusty_dashed = "0.2.1"
 
-[profile.dev]
-opt-level = 3
+[dependencies.rustneat]
+path = "./rustneat"
+features = ["telemetry"]
 
 [dependencies.sdl2]
 version = "0.32.1"
 default-features = false
 features = ["ttf","image","gfx","mixer"]
+
+[features]
+telemetry = []

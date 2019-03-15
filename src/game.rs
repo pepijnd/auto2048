@@ -54,6 +54,15 @@ impl Game {
         score - cells + 1
     }
 
+    pub fn has_won(&self) -> bool {
+        for cell in self.board.data.iter() {
+            if cell.is_set() && cell.get_score().unwrap() == self.scoreTarget {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn reset(&mut self) {
         self.board = Board::new();
     }
@@ -135,29 +144,17 @@ impl Board {
 
     pub fn step_rows(&mut self, dir: Direction) -> bool {
         match dir {
-            Direction::UP | Direction::DOWN => {
-                self.step_vertical(dir)
-            }
-            Direction::LEFT | Direction::RIGHT => {
-                self.step_horizontal(dir)
-            }
+            Direction::UP | Direction::DOWN => self.step_vertical(dir),
+            Direction::LEFT | Direction::RIGHT => self.step_horizontal(dir),
         }
     }
 
     pub fn step_add(&mut self, dir: Direction) -> bool {
         match dir {
-            Direction::UP => {
-                self.get_mut_row(self.height - 1).add_random_zero()
-            }
-            Direction::DOWN => {
-                self.get_mut_row(0).add_random_zero()
-            }
-            Direction::LEFT => {
-                self.get_mut_col(self.width - 1).add_random_zero()
-            }
-            Direction::RIGHT => {
-                self.get_mut_col(0).add_random_zero()
-            }
+            Direction::UP => self.get_mut_row(self.height - 1).add_random_zero(),
+            Direction::DOWN => self.get_mut_row(0).add_random_zero(),
+            Direction::LEFT => self.get_mut_col(self.width - 1).add_random_zero(),
+            Direction::RIGHT => self.get_mut_col(0).add_random_zero(),
         }
     }
 

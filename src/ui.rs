@@ -63,19 +63,27 @@ impl App {
                     Event::KeyDown {
                         keycode: Some(Keycode::Left),
                         ..
-                    } => {game.step(Direction::LEFT);},
+                    } => {
+                        game.step(Direction::LEFT);
+                    }
                     Event::KeyDown {
                         keycode: Some(Keycode::Up),
                         ..
-                    } => {game.step(Direction::UP);},
+                    } => {
+                        game.step(Direction::UP);
+                    }
                     Event::KeyDown {
                         keycode: Some(Keycode::Down),
                         ..
-                    } => {game.step(Direction::DOWN);},
+                    } => {
+                        game.step(Direction::DOWN);
+                    }
                     Event::KeyDown {
                         keycode: Some(Keycode::Right),
                         ..
-                    } => {game.step(Direction::RIGHT);},
+                    } => {
+                        game.step(Direction::RIGHT);
+                    }
                     Event::KeyDown {
                         keycode: Some(Keycode::Space),
                         ..
@@ -94,13 +102,12 @@ impl App {
             }
             std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
-
             use std::time::Instant;
             if auto_run && frame != 0 {
                 let mut ai = AI::new(&game.get_board(), 9);
                 ai.build_tree();
                 let start = Instant::now();
-                let minimax = ai.minimax();
+                let minimax = ai.minimax(None);
 
                 let start = start.elapsed();
 
