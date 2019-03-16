@@ -2,10 +2,11 @@ use ctrnn::{Ctrnn, CtrnnNeuralNetwork};
 use genome::Genome;
 use std::cmp;
 
+
 /// An organism is a Genome with fitness.
 /// Also maitain a fitenss measure of the organism
 #[allow(missing_docs)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Organism {
     pub genome: Genome,
     pub fitness: f64,

@@ -1,5 +1,7 @@
 extern crate rand;
 extern crate sdl2;
+extern crate serde;
+extern crate serde_json;
 
 extern crate rustneat;
 
@@ -24,9 +26,32 @@ use crate::ai::AIScore;
 use crate::ai::AI;
 use crate::game::{Board, Direction, Game};
 
+use serde::{Serialize, Deserialize};
+use serde_json::*;
+
+
 use std::cell::RefCell;
 use std::env;
 use std::rc::Rc;
+
+use std::fs::File;
+use std::fs::create_dir_all;
+use std::io::prelude::*;
+use std::path::Path;
+
+extern crate chrono;
+use chrono::prelude::*;
+
+static mut local: Option<DateTime<Local>> = None;
+
+fn output_json(data: String, gen: u32) {
+    let folder = format!("genomes/{}/", unsafe{local.unwrap().to_string()});
+    create_dir_all(&folder);
+    let name = format!("genomes/{}/{}.json", unsafe{local.unwrap().to_string()}, gen);
+    let path = Path::new(&name);
+    let mut file = File::create(&path).unwrap();
+    file.write_all(data.as_bytes()).unwrap();
+}
 
 #[cfg(feature = "telemetry")]
 pub fn enable_telemetry(query_string: &str) {
@@ -95,6 +120,9 @@ impl Environment for GameEnv {
 }
 
 fn main() {
+    unsafe {
+        local = Some(Local::now());
+    }
     let mut args = env::args().into_iter();
     let target = args.nth(1).unwrap_or("gui".to_string());
     if target == "gui" {
@@ -144,6 +172,8 @@ fn main() {
             }
             gen += 1;
             println!("max fitness in gen {}: {}", gen, max.as_ref().unwrap().fitness);
+            let json = serde_json::to_string(&max);
+            output_json(json.unwrap(), gen);
             max = None;
         }
         println!("{:?}", champion.unwrap().genome);
