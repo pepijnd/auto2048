@@ -163,14 +163,17 @@ impl AI {
     }
 
     pub fn minimax(&self, heuristic: Option<Box<Fn(&Board) -> f64>>) -> MinMaxResult {
-        let heuristic = Rc::new(RefCell::new(heuristic.unwrap()));
+        let heuristic = match heuristic {
+            Some(h) => Some(Rc::new(RefCell::new(h))),
+            _ => None
+        };
         self.minimaxfn(
             Rc::clone(self.root.as_ref().unwrap()),
             0,
             self.depth,
             None,
             None,
-            Some(heuristic.clone()),
+            heuristic,
         )
     }
 
