@@ -9,6 +9,8 @@ use rustneat::Environment;
 use rustneat::Organism;
 use rustneat::Population;
 
+use rand::{thread_rng, Rng};
+
 #[cfg(feature = "telemetry")]
 extern crate open;
 #[cfg(feature = "telemetry")]
@@ -83,7 +85,7 @@ impl Environment for GameEnv {
 
         loop {
             let organism = Rc::new(RefCell::new(organism.clone()));
-            let mut ai = AI::new(&game.get_board(), 6);
+            let mut ai = AI::new(&game.get_board(), 3);
             ai.build_tree();
             let minimax = ai.minimax(Some(Box::new(move |e: &Board| {
                 let mut cells = 0;
@@ -177,5 +179,36 @@ fn main() {
             max = None;
         }
         println!("{:?}", champion.unwrap().genome);
+    } else if target == "rand" {
+        let mut game = Game::new();
+        let mut run = true;
+        let mut steps = 0;
+        let mut won = false;
+
+        let mut scores = Vec::new();
+
+        let n = 100000000;
+        for _ in 0..n {
+            while run {
+                //let mut ai = AI::new(&game.get_board(), 6);
+                let mut ai = AI::new(&game.get_board(), 6);
+                ai.build_tree();
+                let minimax = ai.minimax(Some(Box::new(move |e: &Board| {
+                    let mut rng = thread_rng();
+                    rng.gen_range(-10f64, 10f64)
+                })));
+                if game.step(minimax.get_direction()) == false || game.has_won() {
+                    won = game.has_won();
+                    run = false;
+                }
+                steps += 1;
+            }
+            if won {
+                scores.push(1f64);
+            } else {
+                scores.push(game.get_score() as f64 / 3072f64);
+            }
+        }
+        println!("{} avg after {} games", scores.iter().sum::<f64>() / scores.len() as f64, scores.len());
     }
 }
