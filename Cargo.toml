@@ -6,5 +6,12 @@ edition = "2018"
 
 [dependencies]
 rand = "0.6.5"
+rsrl = {path="/home/pepijn/rsrl"}
 sdl2 = {version="0.32.1", features=["ttf","image","gfx","mixer"]}
+slog = "2.4.1"
+
+[dev-dependencies]
+blas-src = { version = "0.2", default-features = false, features = ["openblas"] }
+openblas-src = { version = "0.6", default-features = false, features = ["cblas", "system"] }
+
 

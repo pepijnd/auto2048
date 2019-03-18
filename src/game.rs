@@ -13,6 +13,7 @@ pub struct Game {
     scoreTarget: u32,
     moves: u32,
     board: Board,
+    lost: bool,
 }
 
 impl Game {
@@ -21,6 +22,7 @@ impl Game {
             scoreTarget: 11,
             moves: 0,
             board: Board::new(),
+            lost: false,
         }
     }
 
@@ -33,7 +35,8 @@ impl Game {
     }
 
     pub fn step(&mut self, dir: Direction) -> bool {
-        self.board.step(dir)
+        self.lost = !self.board.step(dir);
+        self.lost
     }
 
     pub fn print_board(&self) {
@@ -61,6 +64,10 @@ impl Game {
             }
         }
         false
+    }
+
+    pub fn is_over(&self) -> bool {
+        self.lost || self.has_won()
     }
 
     pub fn reset(&mut self) {

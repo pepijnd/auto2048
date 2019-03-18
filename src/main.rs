@@ -1,14 +1,21 @@
 extern crate rand;
+extern crate rsrl;
 extern crate sdl2;
 
-use rand::{thread_rng, Rng};
+#[macro_use]
+extern crate slog;
+
 use rand::prelude::*;
+use rand::{thread_rng, Rng};
 
 mod ai;
 mod game;
+mod learning;
 mod ui;
 
 use ui::App;
+
+use crate::learning::Learning;
 
 use crate::ai::AIScore;
 use crate::ai::AI;
@@ -43,8 +50,8 @@ fn main() {
         } else {
             println!("game lost with a score of {}", game.get_score());
         }
-    } else if target == "train" {
-        
+    } else if target == "learn" {
+        Learning::learn();
     } else if target == "rand" {
         let mut game = Game::new();
         let mut run = true;
@@ -75,6 +82,10 @@ fn main() {
                 scores.push(game.get_score() as f64 / 3072f64);
             }
         }
-        println!("{} avg after {} games", scores.iter().sum::<f64>() / scores.len() as f64, scores.len());
+        println!(
+            "{} avg after {} games",
+            scores.iter().sum::<f64>() / scores.len() as f64,
+            scores.len()
+        );
     }
 }
