@@ -31,7 +31,7 @@ impl Learning {
             let policy = make_shared(EpsilonGreedy::new(
                 Greedy::new(q_func.clone()),
                 Random::new(n_actions),
-                Parameter::exponential(0.3, 0.001, 0.99),
+                Parameter::exponential(0.90, 0.001, 0.99),
             ));
 
             QLearning::new(q_func, policy, 0.5, 0.5)
@@ -52,7 +52,7 @@ impl Learning {
             // Testing phase:
             let testing_result = Evaluation::new(&mut agent, Box::new(GameDomain::default)).next().unwrap();
 
-            info!(logger, "batch {}", c; agent.weights());
+            info!(logger, "batch {}", c);
             info!(logger, "solution"; testing_result);
         }
     }

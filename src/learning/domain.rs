@@ -49,6 +49,12 @@ impl Default for GameDomain {
     }
 }
 
+impl GameDomain {
+    pub fn get_score(&self) -> i32 {
+        self.game.get_score()
+    }
+}
+
 impl Domain for GameDomain {
     type StateSpace = LinearSpace<Interval>;
     type ActionSpace = Ordinal;
